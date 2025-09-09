@@ -1,24 +1,24 @@
 package webpbin
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
-	"os"
 	"golang.org/x/image/webp"
 	"image/png"
+	"os"
+	"testing"
 )
 
 func TestVersionDWebP(t *testing.T) {
-	c := NewDWebP()
+	c := NewDWebP(nil)
 	r, err := c.Version()
 	assert.Nil(t, err)
 	if _, ok := os.LookupEnv("DOCKER_ARM_TEST"); !ok {
-		assert.Equal(t, "1.2.0", r)
+		assert.Equal(t, "1.6.0", r)
 	}
 }
 
 func TestDecodeReader(t *testing.T) {
-	c := NewDWebP()
+	c := NewDWebP(nil)
 	f, err := os.Open("source.webp")
 	assert.Nil(t, err)
 	defer f.Close()
@@ -31,7 +31,7 @@ func TestDecodeReader(t *testing.T) {
 }
 
 func TestDecodeFile(t *testing.T) {
-	c := NewDWebP()
+	c := NewDWebP(nil)
 	c.InputFile("source.webp")
 	c.OutputFile("target.png")
 	img, err := c.Run()
@@ -41,7 +41,7 @@ func TestDecodeFile(t *testing.T) {
 }
 
 func TestDecodeImage(t *testing.T) {
-	c := NewDWebP()
+	c := NewDWebP(nil)
 	f, err := os.Open("source.webp")
 	assert.Nil(t, err)
 	defer f.Close()
@@ -59,7 +59,7 @@ func TestDecodeWriter(t *testing.T) {
 	f, err := os.Create("target.png")
 	assert.Nil(t, err)
 	defer f.Close()
-	c := NewDWebP()
+	c := NewDWebP(nil)
 	c.InputFile("source.webp")
 	c.Output(f)
 	img, err := c.Run()

@@ -15,7 +15,7 @@ type Encoder struct {
 
 // Encode writes the Image m to w in WebP format. Any Image may be encoded.
 func (e *Encoder) Encode(w io.Writer, m image.Image) error {
-	return NewCWebP().
+	return NewCWebP(nil).
 		Quality(e.Quality).
 		InputImage(m).
 		Output(w).
@@ -23,7 +23,7 @@ func (e *Encoder) Encode(w io.Writer, m image.Image) error {
 
 }
 
-//Encode writes the Image m to w in WebP format. Any Image may be encoded.
+// Encode writes the Image m to w in WebP format. Any Image may be encoded.
 func Encode(w io.Writer, m image.Image) error {
 	e := &Encoder{Quality: 75}
 	return e.Encode(w, m)

@@ -13,129 +13,141 @@ import (
 	"github.com/belphemur/go-binwrapper"
 )
 
-var skipDownload bool
-var dest = GetPath()
-var libwebpVersion = "1.4.0"
+// Config holds the configuration for webpbin operations
+type Config struct {
+	SkipDownload   bool
+	Dest           string
+	LibwebpVersion string
+}
 
-func GetPath() string {
+// NewConfig creates a new Config with default values
+func NewConfig() *Config {
+	version := "1.6.0"
+	return &Config{
+		SkipDownload:   false,
+		Dest:           getPath(version),
+		LibwebpVersion: version,
+	}
+}
+
+// getPath returns the path for the given version
+func getPath(version string) string {
 	return filepath.Join(map[string]string{
 		"windows": filepath.Join(os.Getenv("APPDATA")),
 		"darwin":  filepath.Join(os.Getenv("HOME"), ".cache"),
 		"linux":   filepath.Join(os.Getenv("HOME"), ".cache"),
-	}[runtime.GOOS], "webp", libwebpVersion, "bin")
+	}[runtime.GOOS], "webp", version, "bin")
 }
 
-type OptionFunc func(binWrapper *binwrapper.BinWrapper) error
-
-func SetSkipDownload(isSkipDownload bool) OptionFunc {
-	return func(binWrapper *binwrapper.BinWrapper) error {
-		skipDownload = isSkipDownload
-		return nil
-	}
+// SetSkipDownload sets the skip download flag
+func (c *Config) SetSkipDownload(skip bool) {
+	c.SkipDownload = skip
 }
 
-func SetVendorPath(path string) OptionFunc {
-	return func(binWrapper *binwrapper.BinWrapper) error {
-		dest = path
-		return nil
-	}
+// SetVendorPath sets the vendor path
+func (c *Config) SetVendorPath(path string) {
+	c.Dest = path
 }
 
-func SetLibVersion(version string) OptionFunc {
-	return func(binWrapper *binwrapper.BinWrapper) error {
-		libwebpVersion = version
-		dest = GetPath()
-		return nil
-	}
-
+// SetLibVersion sets the libwebp version and updates the destination path
+func (c *Config) SetLibVersion(version string) {
+	c.LibwebpVersion = version
+	c.Dest = getPath(version)
 }
 
-func loadDefaultFromENV(binWrapper *binwrapper.BinWrapper) error {
+// LoadDefaultFromENV loads default configuration from environment variables
+func (c *Config) LoadDefaultFromENV() error {
 	if os.Getenv("SKIP_DOWNLOAD") == "true" {
-		skipDownload = true
+		c.SkipDownload = true
 	}
 
 	if path := os.Getenv("VENDOR_PATH"); path != "" {
-		dest = path
+		c.Dest = path
 	}
 
 	if version := os.Getenv("LIBWEBP_VERSION"); version != "" {
-		libwebpVersion = version
+		c.SetLibVersion(version)
 	}
 
 	return nil
 }
 
 // DetectUnsupportedPlatforms detects platforms without prebuilt binaries (alpine and arm).
-// For this platforms libwebp tools should be built manually.
+// For these platforms libwebp tools should be built manually.
 // See https://github.com/belphemur/go-webpbin/blob/master/docker/Dockerfile and https://github.com/belphemur/go-webpbin/blob/master/docker/Dockerfile.arm for details
-func DetectUnsupportedPlatforms() {
+func (c *Config) DetectUnsupportedPlatforms() {
 	if runtime.GOARCH == "arm" {
-		skipDownload = true
+		c.SkipDownload = true
 	} else if runtime.GOOS == "linux" {
 		output, err := os.ReadFile("/etc/issue")
 
 		if err == nil && bytes.Contains(bytes.ToLower(output), []byte("alpine")) {
-			skipDownload = true
+			c.SkipDownload = true
 		}
 	}
 }
 
-func createBinWrapper(optionFuncs ...OptionFunc) *binwrapper.BinWrapper {
+// DetectUnsupportedPlatforms detects platforms without prebuilt binaries using default config.
+// This function is kept for backward compatibility.
+func DetectUnsupportedPlatforms() {
+	config := NewConfig()
+	config.DetectUnsupportedPlatforms()
+}
+
+// createBinWrapper creates a BinWrapper with the given configuration
+func createBinWrapper(config *Config) *binwrapper.BinWrapper {
 	base := "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/"
 
 	b := binwrapper.NewBinWrapper().AutoExe()
 
-	loadDefaultFromENV(b)
+	// Load defaults from environment and detect unsupported platforms
+	config.LoadDefaultFromENV()
+	config.DetectUnsupportedPlatforms()
 
-	for _, optionFunc := range optionFuncs {
-		optionFunc(b)
-	}
-
-	if !skipDownload {
+	if !config.SkipDownload {
 		b.Src(
 			binwrapper.NewSrc().
-				URL(base + "libwebp-" + libwebpVersion + "-mac-arm64.tar.gz").
+				URL(base + "libwebp-" + config.LibwebpVersion + "-mac-arm64.tar.gz").
 				Os("darwin").
 				Arch("arm64")).
 			Src(
 				binwrapper.NewSrc().
-					URL(base + "libwebp-" + libwebpVersion + "-mac-x86-64.tar.gz").
+					URL(base + "libwebp-" + config.LibwebpVersion + "-mac-x86-64.tar.gz").
 					Os("darwin").
 					Arch("x64")).
 			Src(
 				binwrapper.NewSrc().
-					URL(base + "libwebp-" + libwebpVersion + "-linux-x86-32.tar.gz").
+					URL(base + "libwebp-" + config.LibwebpVersion + "-linux-x86-32.tar.gz").
 					Os("linux").
 					Arch("x86")).
 			Src(
 				binwrapper.NewSrc().
-					URL(base + "libwebp-" + libwebpVersion + "-linux-x86-64.tar.gz").
+					URL(base + "libwebp-" + config.LibwebpVersion + "-linux-x86-64.tar.gz").
 					Os("linux").
 					Arch("x64")).
 			Src(
 				binwrapper.NewSrc().
-					URL(base + "libwebp-" + libwebpVersion + "-linux-aarch64.tar.gz").
+					URL(base + "libwebp-" + config.LibwebpVersion + "-linux-aarch64.tar.gz").
 					Os("linux").
 					Arch("arm64")).
 			Src(
 				binwrapper.NewSrc().
-					URL(base + "libwebp-" + libwebpVersion + "-linux-aarch64.tar.gz").
+					URL(base + "libwebp-" + config.LibwebpVersion + "-linux-aarch64.tar.gz").
 					Os("linux").
 					Arch("aarch64")).
 			Src(
 				binwrapper.NewSrc().
-					URL(base + "libwebp-" + libwebpVersion + "-windows-x64.zip").
+					URL(base + "libwebp-" + config.LibwebpVersion + "-windows-x64.zip").
 					Os("win32").
 					Arch("x64")).
 			Src(
 				binwrapper.NewSrc().
-					URL(base + "libwebp-" + libwebpVersion + "-windows-x86.zip").
+					URL(base + "libwebp-" + config.LibwebpVersion + "-windows-x86.zip").
 					Os("win32").
 					Arch("x86"))
 	}
 
-	return b.Strip(2).Dest(dest)
+	return b.Strip(2).Dest(config.Dest)
 }
 
 func createReaderFromImage(img image.Image) (io.Reader, error) {

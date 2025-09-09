@@ -21,9 +21,12 @@ type DWebP struct {
 }
 
 // NewDWebP creates new WebP instance
-func NewDWebP(optionFuncs ...OptionFunc) *DWebP {
+func NewDWebP(config *Config) *DWebP {
+	if config == nil {
+		config = NewConfig()
+	}
 	bin := &DWebP{
-		BinWrapper: createBinWrapper(optionFuncs...),
+		BinWrapper: createBinWrapper(config),
 	}
 	bin.ExecPath("dwebp")
 

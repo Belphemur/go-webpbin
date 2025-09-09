@@ -29,9 +29,12 @@ type CWebP struct {
 }
 
 // NewCWebP creates new CWebP instance.
-func NewCWebP(optionFuncs ...OptionFunc) *CWebP {
+func NewCWebP(config *Config) *CWebP {
+	if config == nil {
+		config = NewConfig()
+	}
 	bin := &CWebP{
-		BinWrapper: createBinWrapper(optionFuncs...),
+		BinWrapper: createBinWrapper(config),
 		quality:    -1,
 	}
 	bin.ExecPath("cwebp")
@@ -157,7 +160,6 @@ func (c *CWebP) setInput() error {
 		c.StdIn(c.input)
 	} else if c.inputImage != nil {
 		r, err := createReaderFromImage(c.inputImage)
-
 		if err != nil {
 			return err
 		}

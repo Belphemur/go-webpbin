@@ -1,20 +1,21 @@
 package webpbin
 
 import (
+	"fmt"
+	"image/jpeg"
+	"io"
 	"net/http"
 	"os"
-	"io"
-	"github.com/stretchr/testify/assert"
 	"testing"
-	"image/jpeg"
+
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/image/webp"
-	"fmt"
 )
 
 func init() {
 	DetectUnsupportedPlatforms()
-	downloadFile("https://upload.wikimedia.org/wikipedia/commons/e/e3/Avola-Syracuse-Sicilia-Italy_-_Creative_Commons_by_gnuckx_%283858115914%29.jpg", "source.jpg")
-	downloadFile("https://upload.wikimedia.org/wikipedia/commons/d/d1/Snail_in_Forest_on_Lichtscheid_2.webp", "source.webp")
+	copyFile("test-data/Example.jpg", "source.jpg")
+	copyFile("test-data/sample.webp", "source.webp")
 }
 
 func downloadFile(url, target string) {
@@ -46,8 +47,37 @@ func downloadFile(url, target string) {
 	}
 }
 
+func copyFile(source, target string) {
+	_, err := os.Stat(target)
+
+	if err != nil {
+		src, err := os.Open(source)
+
+		if err != nil {
+			fmt.Printf("Error while opening source file: %v\n", err)
+			panic(err)
+		}
+
+		defer src.Close()
+
+		dst, err := os.Create(target)
+
+		if err != nil {
+			panic(err)
+		}
+
+		defer dst.Close()
+
+		_, err = io.Copy(dst, src)
+
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
 func TestEncodeImage(t *testing.T) {
-	c := NewCWebP()
+	c := NewCWebP(nil)
 	f, err := os.Open("source.jpg")
 	assert.Nil(t, err)
 	img, err := jpeg.Decode(f)
@@ -60,7 +90,7 @@ func TestEncodeImage(t *testing.T) {
 }
 
 func TestEncodeReader(t *testing.T) {
-	c := NewCWebP()
+	c := NewCWebP(nil)
 	f, err := os.Open("source.jpg")
 	assert.Nil(t, err)
 	c.Input(f)
@@ -71,7 +101,7 @@ func TestEncodeReader(t *testing.T) {
 }
 
 func TestEncodeFile(t *testing.T) {
-	c := NewCWebP()
+	c := NewCWebP(nil)
 	c.InputFile("source.jpg")
 	c.OutputFile("target.webp")
 	err := c.Run()
@@ -84,7 +114,7 @@ func TestEncodeWriter(t *testing.T) {
 	assert.Nil(t, err)
 	defer f.Close()
 
-	c := NewCWebP()
+	c := NewCWebP(nil)
 	c.InputFile("source.jpg")
 	c.Output(f)
 	err = c.Run()
@@ -94,12 +124,12 @@ func TestEncodeWriter(t *testing.T) {
 }
 
 func TestVersionCWebP(t *testing.T) {
-	c := NewCWebP()
+	c := NewCWebP(nil)
 	r, err := c.Version()
 	assert.Nil(t, err)
 
 	if _, ok := os.LookupEnv("DOCKER_ARM_TEST"); !ok {
-		assert.Equal(t, "1.2.0", r)
+		assert.Equal(t, "1.6.0", r)
 	}
 }
 
