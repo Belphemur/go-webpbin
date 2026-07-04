@@ -1,6 +1,6 @@
 module github.com/belphemur/go-webpbin/v2
 
-go 1.25
+go 1.26
 
 require (
 	github.com/belphemur/go-binwrapper v1.0.0
