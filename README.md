@@ -79,6 +79,19 @@ err := webpbin.NewCWebP().
 		Run()
 ```
 
+`RunWithContext` can be used instead of `Run` to cancel the running *cwebp* process, for example to enforce a timeout:
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+
+err := webpbin.NewCWebP().
+		Quality(80).
+		InputFile("image.png").
+		OutputFile("image.webp").
+		RunWithContext(ctx)
+```
+
 ## DWebP
 
 DWebP is a wrapper for *dwebp* command line tool.
