@@ -1,12 +1,14 @@
 package webpbin
 
 import (
+	"context"
 	"fmt"
 	"image/jpeg"
 	"io"
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/image/webp"
@@ -121,6 +123,50 @@ func TestEncodeWriter(t *testing.T) {
 	assert.Nil(t, err)
 	f.Close()
 	validateWebp(t)
+}
+
+func TestRunWithContextCancel(t *testing.T) {
+	c := NewCWebP(nil)
+	pr, pw := io.Pipe()
+	defer pw.Close()
+
+	c.Input(pr)
+	c.OutputFile("target_cancel.webp")
+	defer os.Remove("target_cancel.webp")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		done <- c.RunWithContext(ctx)
+	}()
+
+	// give cwebp time to start and block waiting for stdin input
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		assert.Equal(t, context.Canceled, err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("RunWithContext did not return after context cancellation")
+	}
+}
+
+func TestRunWithContextTimeout(t *testing.T) {
+	c := NewCWebP(nil)
+	pr, pw := io.Pipe()
+	defer pw.Close()
+
+	c.Input(pr)
+	c.OutputFile("target_timeout.webp")
+	defer os.Remove("target_timeout.webp")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	err := c.RunWithContext(ctx)
+	assert.Equal(t, context.DeadlineExceeded, err)
 }
 
 func TestVersionCWebP(t *testing.T) {

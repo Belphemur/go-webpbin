@@ -1,6 +1,7 @@
 package webpbin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/belphemur/go-binwrapper"
@@ -110,6 +111,15 @@ func (c *CWebP) Crop(x, y, width, height int) *CWebP {
 
 // Run starts cwebp with specified parameters.
 func (c *CWebP) Run() error {
+	return c.RunWithContext(context.Background())
+}
+
+// RunWithContext starts cwebp with specified parameters. The provided context
+// can be used to cancel the running cwebp process, for example when the
+// caller wants to enforce a timeout or abort the operation early. If the
+// context is canceled before cwebp finishes, the process is killed and the
+// context's error is returned.
+func (c *CWebP) RunWithContext(ctx context.Context) error {
 	defer c.BinWrapper.Reset()
 
 	if c.quality > -1 {
@@ -138,13 +148,29 @@ func (c *CWebP) Run() error {
 		c.SetStdOut(c.output)
 	}
 
-	err = c.BinWrapper.Run()
+	done := make(chan error, 1)
+	go func() {
+		done <- c.BinWrapper.Run()
+	}()
 
-	if err != nil {
-		return errors.New(err.Error() + ". " + string(c.StdErr()))
+	select {
+	case <-ctx.Done():
+		_ = c.BinWrapper.Kill()
+		// If the input is a stream (e.g. io.Pipe, network connection) the
+		// underlying process runner may still be blocked copying data to the
+		// killed process's stdin. Closing it, when possible, unblocks that
+		// copy so RunWithContext can return promptly.
+		if closer, ok := c.input.(io.Closer); ok {
+			_ = closer.Close()
+		}
+		<-done
+		return ctx.Err()
+	case err = <-done:
+		if err != nil {
+			return errors.New(err.Error() + ". " + string(c.StdErr()))
+		}
+		return nil
 	}
-
-	return nil
 }
 
 // Reset all parameters to default values
